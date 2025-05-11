@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/integrii/flaggy"
 	mcpgo "github.com/metoro-io/mcp-golang"
@@ -49,7 +50,10 @@ func main() {
 	server := mcpgo.NewServer(stdio.NewStdioServerTransport())
 
 	err := server.RegisterTool("fetch_movie_by_title", "Fetch movie details by title", func(arguments MovieFetchParams) (*mcpgo.ToolResponse, error) {
-		result, searchErr := movieService.FetchMovie(context.Background(), arguments.Title)
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
+		defer cancelFunc()
+
+		result, searchErr := movieService.FetchMovie(ctx, arguments.Title)
 		if searchErr != nil {
 			panic(searchErr)
 		}
