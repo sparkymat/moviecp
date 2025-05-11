@@ -1,87 +1,65 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"net/http"
 
-	mcp_golang "github.com/metoro-io/mcp-golang"
+	"github.com/integrii/flaggy"
+	mcpgo "github.com/metoro-io/mcp-golang"
 	"github.com/metoro-io/mcp-golang/transport/stdio"
+	"github.com/redis/go-redis/v9"
+	"github.com/sparkymat/moviecp/internal/movie"
+	"github.com/sparkymat/moviecp/internal/provider/tmdb"
 )
+
+var apiToken = ""
+
+var redisURL = ""
 
 type MovieSearchparams struct {
 	Query string `json:"query" jsonschema:"required,description=Text to search for in movie titles"`
 }
 
 func main() {
-	done := make(chan struct{})
-	server := mcp_golang.NewServer(stdio.NewStdioServerTransport())
+	flaggy.String(&apiToken, "t", "token", "TMDB API Token")
+	flaggy.String(&redisURL, "r", "redis", "Redis URL")
 
-	err := server.RegisterTool("search_movies_by_title", "Search movies by title", func(arguments MovieSearchparams) (*mcp_golang.ToolResponse, error) {
-		resp := map[string]any{
-			"results": []map[string]any{
-				{
-					"title":    "Ustad Hotel",
-					"year":     2012,
-					"synopsis": "Faisi wants to go to UK to become a professional chef but circumstances force him to assist his grandfather in a small restaurant in Kozhikode city, changing his outlook on life forever.",
-					"genres":   []string{"Comedy", "Drama"},
-				},
-				{
-					"title":    "Hotel California",
-					"year":     2013,
-					"synopsis": "Amidst a violent confrontation and illicit affairs, a shadowy criminal operation involving counterfeit DVDs and a notorious don, “Airport Jimmy,” begins to unfold.  Parallel storylines of desire, mystery, and media scrutiny converge around this central criminal enterprise.",
-					"genres":   []string{"Comedy"},
-				},
-			},
-			"count": 2,
-		}
+	flaggy.Parse()
 
-		respBytes, err := json.Marshal(resp)
-		if err != nil {
-			panic(err)
-		}
-
-		return &mcp_golang.ToolResponse{
-			Content: []*mcp_golang.Content{
-				{
-					Type: mcp_golang.ContentTypeText,
-					TextContent: &mcp_golang.TextContent{
-						Text: string(respBytes),
-					},
-				},
-			},
-		}, nil
-	})
-	if err != nil {
-		panic(err)
+	if apiToken == "" {
+		panic("missing api token")
 	}
 
-	err = server.RegisterTool("search_movies_by_genre", "Search movies by genre", func(arguments MovieSearchparams) (*mcp_golang.ToolResponse, error) {
-		resp := map[string]any{
-			"results": []map[string]any{
-				{
-					"title":    "Pulival Kalyanam",
-					"year":     2012,
-					"synopsis": "Faisi wants to go to UK to become a professional chef but circumstances force him to assist his grandfather in a small restaurant in Kozhikode city, changing his outlook on life forever.",
-				},
-				{
-					"title":    "Salt n Pepper",
-					"year":     2013,
-					"synopsis": "Amidst a violent confrontation and illicit affairs, a shadowy criminal operation involving counterfeit DVDs and a notorious don, “Airport Jimmy,” begins to unfold.  Parallel storylines of desire, mystery, and media scrutiny converge around this central criminal enterprise.",
-				},
-			},
-			"count": 2,
-		}
+	if redisURL == "" {
+		panic("missing redis URL")
+	}
 
-		respBytes, err := json.Marshal(resp)
+	done := make(chan struct{})
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisURL,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	tmdbProvider := tmdb.New(http.DefaultClient, redisClient, apiToken)
+
+	movieService := movie.New(tmdbProvider)
+
+	server := mcpgo.NewServer(stdio.NewStdioServerTransport())
+
+	err := server.RegisterTool("search_movies_by_title", "Search movies by title", func(arguments MovieSearchparams) (*mcpgo.ToolResponse, error) {
+		result, err := movieService.SearchMovies(context.Background(), arguments.Query)
 		if err != nil {
 			panic(err)
 		}
 
-		return &mcp_golang.ToolResponse{
-			Content: []*mcp_golang.Content{
+		return &mcpgo.ToolResponse{
+			Content: []*mcpgo.Content{
 				{
-					Type: mcp_golang.ContentTypeText,
-					TextContent: &mcp_golang.TextContent{
-						Text: string(respBytes),
+					Type: mcpgo.ContentTypeText,
+					TextContent: &mcpgo.TextContent{
+						Text: string(result),
 					},
 				},
 			},
