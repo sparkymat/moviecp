@@ -16,8 +16,8 @@ var apiToken = ""
 
 var redisURL = ""
 
-type MovieSearchparams struct {
-	Query string `json:"query" jsonschema:"required,description=Text to search for in movie titles"`
+type MovieFetchParams struct {
+	Title string `json:"title" jsonschema:"required,description=Title of movie to be fetched"`
 }
 
 func main() {
@@ -48,10 +48,10 @@ func main() {
 
 	server := mcpgo.NewServer(stdio.NewStdioServerTransport())
 
-	err := server.RegisterTool("search_movies_by_title", "Search movies by title", func(arguments MovieSearchparams) (*mcpgo.ToolResponse, error) {
-		result, err := movieService.SearchMovies(context.Background(), arguments.Query)
-		if err != nil {
-			panic(err)
+	err := server.RegisterTool("fetch_movie_by_title", "Fetch movie details by title", func(arguments MovieFetchParams) (*mcpgo.ToolResponse, error) {
+		result, searchErr := movieService.FetchMovie(context.Background(), arguments.Title)
+		if searchErr != nil {
+			panic(searchErr)
 		}
 
 		return &mcpgo.ToolResponse{

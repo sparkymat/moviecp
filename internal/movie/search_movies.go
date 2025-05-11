@@ -10,6 +10,7 @@ import (
 )
 
 type SearchMoviesResultItem struct {
+	ID          string   `json:"id"`
 	Title       string   `json:"title"`
 	ReleaseDate string   `json:"releaseData"`
 	Synopsis    string   `json:"synopsis"`
@@ -24,14 +25,13 @@ type SearchMoviesResponse struct {
 func (s *Service) SearchMovies(ctx context.Context, query string) ([]byte, error) {
 	movies, _, err := s.tmdb.SearchMovies(ctx, query, 1)
 	if err != nil {
-		return []byte(`{
-			"error": "failed to query"
-}`), fmt.Errorf("failed to query movies: %w", err)
+		return []byte(`{"error": "failed to query"}`), fmt.Errorf("failed to query movies: %w", err)
 	}
 
 	resultItems := lo.Map(movies, func(m tmdb.Movie, _ int) SearchMoviesResultItem {
 
 		i := SearchMoviesResultItem{
+			ID:          m.ID,
 			Title:       m.Title,
 			ReleaseDate: m.ReleaseDate,
 			Synopsis:    m.Overview,
@@ -48,9 +48,7 @@ func (s *Service) SearchMovies(ctx context.Context, query string) ([]byte, error
 
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
-		return []byte(`
-		"error": "failed to marshal response"
-`), fmt.Errorf("failed to marshal response: %w", err)
+		return []byte(`"error": "failed to marshal response"`), fmt.Errorf("failed to marshal response: %w", err)
 	}
 
 	return responseBytes, nil
