@@ -21,6 +21,10 @@ type MovieFetchParams struct {
 	Title string `json:"title" jsonschema:"required,description=Title of movie to be fetched"`
 }
 
+type SearchArtistsParams struct {
+	Name string `json:"name" jsonschema:"required,description=Name of artists to search for"`
+}
+
 func main() {
 	flaggy.String(&apiToken, "t", "token", "TMDB API Token")
 	flaggy.String(&redisURL, "r", "redis", "Redis URL")
@@ -54,6 +58,30 @@ func main() {
 		defer cancelFunc()
 
 		result, searchErr := movieService.FetchMovie(ctx, arguments.Title)
+		if searchErr != nil {
+			panic(searchErr)
+		}
+
+		return &mcpgo.ToolResponse{
+			Content: []*mcpgo.Content{
+				{
+					Type: mcpgo.ContentTypeText,
+					TextContent: &mcpgo.TextContent{
+						Text: string(result),
+					},
+				},
+			},
+		}, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = server.RegisterTool("search_artists_by_name", "Search artists by name", func(arguments SearchArtistsParams) (*mcpgo.ToolResponse, error) {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
+		defer cancelFunc()
+
+		result, searchErr := movieService.SearchArtists(ctx, arguments.Name)
 		if searchErr != nil {
 			panic(searchErr)
 		}

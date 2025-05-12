@@ -70,9 +70,9 @@ func (p *Provider) SearchArtists(ctx context.Context, query string, page int64) 
 
 		switch item.Gender {
 		case 1:
-			a.Gender = "Male"
-		case 2:
 			a.Gender = "Female"
+		case 2:
+			a.Gender = "Male"
 		case 0:
 			a.Gender = "Unknown"
 		default:
