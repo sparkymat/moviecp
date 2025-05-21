@@ -11,14 +11,22 @@ import (
 
 //nolint:tagliatelle
 type fetchMovieResponse struct {
-	ID               int64                         `json:"id"`
-	Title            string                        `json:"title"`
-	Overview         string                        `json:"overview"`
-	ReleaseDate      string                        `json:"release_date"`
-	Genres           []fetchMovieResponseGenreItem `json:"genres"`
-	PosterPath       string                        `json:"poster_path"`
-	VoteAverage      float64                       `json:"vote_average"`
-	OriginalLanguage string                        `json:"original_language"`
+	ID                  int64                                 `json:"id"`
+	Title               string                                `json:"title"`
+	Overview            string                                `json:"overview"`
+	ReleaseDate         string                                `json:"release_date"`
+	Genres              []fetchMovieResponseGenreItem         `json:"genres"`
+	PosterPath          string                                `json:"poster_path"`
+	VoteAverage         float64                               `json:"vote_average"`
+	OriginalLanguage    string                                `json:"original_language"`
+	ProductionCompanies []fetchMovieResponseProductionCompany `json:"production_companies"`
+}
+
+type fetchMovieResponseProductionCompany struct {
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	OriginCountry string `json:"origin_country"`
+	LogoPath      string `json:"logo_path"`
 }
 
 type fetchMovieResponseGenreItem struct {
@@ -27,35 +35,46 @@ type fetchMovieResponseGenreItem struct {
 }
 
 type fetchCreditsResponse struct {
-	Cast []fetchCreditsResponseCreditItem `json:"cast"`
+	Cast []fetchCreditsResponseCastItem `json:"cast"`
+	Crew []fetchCreditsResponseCrewItem `json:"crew"`
 }
 
 //nolint:tagliatelle
-type fetchCreditsResponseCreditItem struct {
-	Character   string `json:"character"`
-	Name        string `json:"name"`
+type fetchCreditsResponseCastItem struct {
 	ID          int64  `json:"id"`
-	Order       int64  `json:"order"`
+	Name        string `json:"name"`
 	ProfilePath string `json:"profile_path"`
+	Gender      int64  `json:"gender"`
+	Character   string `json:"character"`
+	Order       int64  `json:"order"`
 }
 
-func (p *Provider) FetchMovie(ctx context.Context, movieID string) (Movie, []Credit, error) {
+type fetchCreditsResponseCrewItem struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	ProfilePath string `json:"profile_path"`
+	Gender      int64  `json:"gender"`
+	Department  string `json:"department"`
+	Job         string `json:"job"`
+}
+
+func (p *Provider) FetchMovie(ctx context.Context, movieID string) (Movie, []Cast, []Crew, error) {
 	url := fmt.Sprintf("%s/movie/%s?api_key=%s", baseURL, movieID, p.apiToken)
 
 	movieItem, err := provider.FetchJSON[fetchMovieResponse](ctx, p.redisClient, p.httpClient, url)
 	if err != nil {
-		return Movie{}, nil, fmt.Errorf("failed to fetch movies: %w", err)
+		return Movie{}, nil, nil, fmt.Errorf("failed to fetch movies: %w", err)
 	}
 
 	url = fmt.Sprintf("%s/movie/%s/credits?api_key=%s", baseURL, movieID, p.apiToken)
 
 	creditItems, err := provider.FetchJSON[fetchCreditsResponse](ctx, p.redisClient, p.httpClient, url)
 	if err != nil {
-		return Movie{}, nil, fmt.Errorf("failed to fetch credits: %w", err)
+		return Movie{}, nil, nil, fmt.Errorf("failed to fetch credits: %w", err)
 	}
 
-	credits := lo.Map(creditItems.Cast, func(creditItem fetchCreditsResponseCreditItem, _ int) Credit {
-		return Credit{
+	cast := lo.Map(creditItems.Cast, func(creditItem fetchCreditsResponseCastItem, _ int) Cast {
+		c := Cast{
 			ID:        strconv.FormatInt(creditItem.ID, 10),
 			Name:      creditItem.Name,
 			Character: creditItem.Character,
@@ -70,6 +89,46 @@ func (p *Provider) FetchMovie(ctx context.Context, movieID string) (Movie, []Cre
 				return &v
 			}(),
 		}
+
+		switch creditItem.Gender {
+		case 0:
+			c.Gender = "Unknown"
+		case 1:
+			c.Gender = "Female"
+		case 2:
+			c.Gender = "Male"
+		}
+
+		return c
+	})
+
+	crew := lo.Map(creditItems.Crew, func(creditItem fetchCreditsResponseCrewItem, _ int) Crew {
+		c := Crew{
+			ID:   strconv.FormatInt(creditItem.ID, 10),
+			Name: creditItem.Name,
+			ProfilePath: func() *string {
+				if creditItem.ProfilePath == "" {
+					return nil
+				}
+
+				v := fmt.Sprintf("%s%s", imageBaseURL, creditItem.ProfilePath)
+
+				return &v
+			}(),
+			Department: creditItem.Department,
+			Job:        creditItem.Job,
+		}
+
+		switch creditItem.Gender {
+		case 0:
+			c.Gender = "Unknown"
+		case 1:
+			c.Gender = "Female"
+		case 2:
+			c.Gender = "Male"
+		}
+
+		return c
 	})
 
 	movie := Movie{
@@ -83,5 +142,5 @@ func (p *Provider) FetchMovie(ctx context.Context, movieID string) (Movie, []Cre
 		VoteAverage: movieItem.VoteAverage,
 	}
 
-	return movie, credits, nil
+	return movie, cast, crew, nil
 }

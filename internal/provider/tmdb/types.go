@@ -30,9 +30,19 @@ type Artist struct {
 	TvShows     []TvShow `json:"tv_show_ids"`
 }
 
-type Credit struct {
+type Crew struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
+	Gender      string  `json:"gender"`
+	ProfilePath *string `json:"profile_path"`
+	Department  string  `json:"department"`
+	Job         string  `json:"job"`
+}
+
+type Cast struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Gender      string  `json:"gender"`
 	Character   string  `json:"character"`
 	Order       int64   `json:"order"`
 	ProfilePath *string `json:"profile_path"`
@@ -54,14 +64,14 @@ type Season struct {
 	Name       string    `json:"name"`
 	PosterPath string    `json:"poster_path"`
 	Episodes   []Episode `json:"episodes"`
-	Credits    []Credit  `json:"credits"`
+	Credits    []Cast    `json:"credits"`
 }
 
 type Episode struct {
-	Number     int64    `json:"number"`
-	Name       string   `json:"name"`
-	AirDate    string   `json:"air_date"`
-	ID         string   `json:"id"`
-	Overview   string   `json:"overview"`
-	GuestStars []Credit `json:"guest_stars"`
+	Number     int64  `json:"number"`
+	Name       string `json:"name"`
+	AirDate    string `json:"air_date"`
+	ID         string `json:"id"`
+	Overview   string `json:"overview"`
+	GuestStars []Cast `json:"guest_stars"`
 }

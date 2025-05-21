@@ -21,8 +21,8 @@ type MovieFetchParams struct {
 	Title string `json:"title" jsonschema:"required,description=Title of movie to be fetched"`
 }
 
-type SearchArtistsParams struct {
-	Name string `json:"name" jsonschema:"required,description=Name of artists to search for"`
+type ArtistFetchParams struct {
+	Name string `json:"name" jsonschema:"required,description=Name of artist to fetch"`
 }
 
 func main() {
@@ -77,11 +77,35 @@ func main() {
 		panic(err)
 	}
 
-	err = server.RegisterTool("search_artists_by_name", "Search artists by name", func(arguments SearchArtistsParams) (*mcpgo.ToolResponse, error) {
+	err = server.RegisterTool("fetch_artist_by_name", "Fetch artist details by name", func(arguments ArtistFetchParams) (*mcpgo.ToolResponse, error) {
 		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
 		defer cancelFunc()
 
-		result, searchErr := movieService.SearchArtists(ctx, arguments.Name)
+		result, searchErr := movieService.FetchArtist(ctx, arguments.Name)
+		if searchErr != nil {
+			panic(searchErr)
+		}
+
+		return &mcpgo.ToolResponse{
+			Content: []*mcpgo.Content{
+				{
+					Type: mcpgo.ContentTypeText,
+					TextContent: &mcpgo.TextContent{
+						Text: string(result),
+					},
+				},
+			},
+		}, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = server.RegisterTool("fetch_artist_movies", "Fetch movies for artist", func(arguments ArtistFetchParams) (*mcpgo.ToolResponse, error) {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*20)
+		defer cancelFunc()
+
+		result, searchErr := movieService.FetchArtist(ctx, arguments.Name)
 		if searchErr != nil {
 			panic(searchErr)
 		}
